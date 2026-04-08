@@ -1,10 +1,20 @@
 # Real-Time Anonymous ChatApp 🚀
 
-## 🎨 UI Showcase
+## 📸 Screenshots
 
-![ChatApp UI](screenshots/Screenshot%202026-04-08%20193721.png)
+Login Screen
+<br>
+<img src="login.png" width="800" alt="Login" />
 
-![ChatApp UI](screenshots/Screenshot%202026-04-08%20193408.png)
+Room List Interface
+<br>
+<img src="Room.png" width="800" alt="Room List" />
+
+Main Chat Interface 
+<br>
+<img src="chatinterface.png" width="800" alt="Main Interface" />
+ 
+---
 
 ## ✨ Features
 - **Real-Time Messaging**: Instant delivery of messages via bi-directional WebSockets.
@@ -39,9 +49,8 @@ cd chatapp
 Navigate to the backend directory and set up your virtual environment:
 
 ```bash
-
-python -m venv venv
 cd backend
+python -m venv venv
 
 # On Windows:
 venv\Scripts\activate
@@ -65,8 +74,6 @@ The backend API will run on `http://localhost:8000`
 Open a new terminal window and navigate to the frontend directory:
 
 ```bash
-
-python -m venv venv
 cd frontend
 npm install
 ```
