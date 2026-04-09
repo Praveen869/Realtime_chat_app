@@ -1,6 +1,5 @@
 # 💬 Real-Time Anonymous ChatApp
 
-[![GitLab CI](https://gitlab.com/praveen869-group/chatapp/badges/main/pipeline.svg)](https://gitlab.com/praveen869-group/chatapp/-/pipelines)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 A full-stack, real-time anonymous chat application built with **FastAPI** (Python) and **React** (Vite).- **Anonymous & Ephemeral** — No accounts, no database, messages are not stored
