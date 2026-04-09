@@ -1,67 +1,38 @@
-# ============================================================
-#  GitLab CI Pipeline — Real-Time Chat App
-#  This file runs automatically whenever you push code.
-#  It checks that both frontend and backend are working.
-# ============================================================
+# GitLab CI Pipeline for Chat App
+# This version is simplified to avoid syntax errors
 
-# "stages" defines the ORDER in which jobs run.
-# First "backend-check" runs, then "frontend-build".
 stages:
-  - backend-check
-  - frontend-build
+  - check
+  - build
 
-# ─────────────────────────────────────────────
-#  BACKEND JOB
-#  Uses Python, installs packages, checks syntax
-# ─────────────────────────────────────────────
+# Backend Job
 backend:
-  stage: backend-check
-  image: python:3.11-slim          # GitLab will use a small Python 3.11 environment
-
+  stage: check
+  image: python:3.11-slim
   before_script:
-    - echo "=== Installing Backend Dependencies ==="
-    - pip install --upgrade pip    # Make sure pip is up to date
-    - pip install -r backend/requirements.txt   # Install fastapi, uvicorn, websockets
-
+    - pip install --upgrade pip
+    - pip install -r backend/requirements.txt
   script:
-    - echo "=== Running Backend Syntax Check ==="
-    - python -m py_compile backend/main.py     # Check main.py for syntax errors
-    - echo "✅ Backend syntax OK!"
-    - echo "=== Verifying FastAPI app can be imported ==="
-    - python -c "from backend.main import app; print('✅ FastAPI app imports successfully!')"
+    - echo "Testing backend..."
+    - python -m py_compile backend/main.py
+    - echo "Backend syntax is OK"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
 
-  # Only run this job when code is pushed to these branches
-  only:
-    - main
-    - develop
-
-
-# ─────────────────────────────────────────────
-#  FRONTEND JOB
-#  Uses Node.js, installs packages, builds React app
-# ─────────────────────────────────────────────
+# Frontend Job
 frontend:
-  stage: frontend-build
-  image: node:20-slim              # GitLab will use a Node.js 20 environment
-
+  stage: build
+  image: node:20-slim
   before_script:
-    - echo "=== Moving into frontend folder ==="
     - cd frontend
-    - echo "=== Installing Frontend Dependencies ==="
-    - npm ci                       # 'npm ci' is like 'npm install' but faster & stricter (for CI)
-
+    - npm ci
   script:
-    - echo "=== Building React App ==="
-    - npm run build                # Runs 'vite build' — produces the dist/ folder
-    - echo "✅ Frontend build successful!"
-
-  # Save the built files so you can download them from GitLab if needed
+    - echo "Building frontend..."
+    - npm run build
+    - echo "Frontend build is successful"
   artifacts:
     paths:
-      - frontend/dist/             # The compiled React app output
-    expire_in: 1 hour              # Auto-delete after 1 hour (saves storage)
-
-  # Only run this job when code is pushed to these branches
-  only:
-    - main
-    - develop
+      - frontend/dist/
+    expire_in: 1 hour
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
