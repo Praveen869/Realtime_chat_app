@@ -1,5 +1,13 @@
-/venv/
+# Python
+venv/
 __pycache__/
+*.pyc
+
+# Node (Frontend)
+node_modules/
+dist/
+
+# Environment & Editors
 .env
-/.vscode/
+.vscode/
 .DS_Store
