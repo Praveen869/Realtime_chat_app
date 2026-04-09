@@ -15,7 +15,7 @@ rooms = {}
 
 @app.get("/")
 def home():
-    return {"message": "Server chal raha hai!"}
+    return {"message": "Server is working!"}
 
 @app.get("/rooms")
 def get_rooms():
@@ -59,7 +59,7 @@ async def websocket_endpoint(
     # Join message
     await broadcast(room_name, {
         "type": "system",
-        "text": f"🟢 {username} room mein aa gaya!",
+        "text": f"🟢 {username} Entered the chat!",
     })
 
     try:
@@ -92,7 +92,7 @@ async def websocket_endpoint(
             await broadcast_users(room_name)
             await broadcast(room_name, {
                 "type": "system",
-                "text": f"🔴 {username} room se chala gaya!",
+                "text": f"🔴 {username} Left the chat! 👋",
             })
 
 
