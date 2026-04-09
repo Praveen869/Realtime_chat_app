@@ -1,1 +1,3 @@
-# requirements
+fastapi
+uvicorn[standard]
+websockets
