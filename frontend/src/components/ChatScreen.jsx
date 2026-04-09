@@ -32,7 +32,8 @@ function ChatScreen({ username, room, onLeaveRoom }) {
 
     function sendMessage() {
         if (input.trim() === "") return
-        ws.current.send(JSON.stringify({ text: input }))
+        // Send UTC ISO timestamp — each user's browser converts to THEIR local time
+        ws.current.send(JSON.stringify({ text: input, time: new Date().toISOString() }))
         setInput("")
     }
 
@@ -115,9 +116,11 @@ function ChatScreen({ username, room, onLeaveRoom }) {
                                                 <p className="leading-relaxed break-words">{msg.text}</p>
                                             </div>
 
-                                            {/* Timestamp */}
+                                            {/* Timestamp — parsed from UTC into viewer's local time */}
                                             <span className={`text-[10px] text-gray-500 mt-1 font-medium ${isMe ? "mr-1.5" : "ml-1.5"}`}>
-                                                {msg.time}
+                                                {msg.time
+                                                    ? new Date(msg.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                                                    : ""}
                                             </span>
                                         </div>
                                     )}

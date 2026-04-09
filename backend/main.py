@@ -1,6 +1,5 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from datetime import datetime
 
 app = FastAPI()
 
@@ -76,16 +75,16 @@ async def websocket_endpoint(
 
             # Security Validation: Enforce message length
             text_payload = data.get("text", "")
+            time_payload = data.get("time", "")  # Use client's local time
+
             if len(text_payload) > 500:
                 continue # Ignore extremely massive payloads
-
-            now = datetime.now().strftime("%I:%M %p")
 
             await broadcast(room_name, {
                 "type": "message",
                 "username": username,
                 "text": text_payload,
-                "time": now,
+                "time": time_payload,  # Relay client time — always correct timezone
             })
 
     except WebSocketDisconnect:
