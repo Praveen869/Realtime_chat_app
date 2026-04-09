@@ -3,7 +3,7 @@
 [![GitLab CI](https://gitlab.com/praveen869-group/chatapp/badges/main/pipeline.svg)](https://gitlab.com/praveen869-group/chatapp/-/pipelines)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-A full-stack, real-time anonymous chat application built with **FastAPI** (Python) and **React** (Vite). No accounts, no database, no stored messages. Just open and chat.
+A full-stack, real-time anonymous chat application built with **FastAPI** (Python) and **React** (Vite).- **Anonymous & Ephemeral** — No accounts, no database, messages are not stored
 
 ---
 
@@ -25,7 +25,7 @@ Main Chat Interface
 
 ## ✨ Features
 
-- **Real-Time Messaging** — Instant delivery via bi-directional WebSockets
+- **Real-Time Messaging** — Instant communication via WebSockets with no page reload
 - **Anonymous Architecture** — No accounts, no database, no stored messages
 - **Multi-Room System** — Create any room; share the name to invite others
 - **Live User List** — See who is online in the sidebar (desktop)
@@ -90,6 +90,16 @@ chatapp/
 ├── .gitignore
 └── README.md
 ```
+
+
+## 🧠 How It Works
+
+- Users enter a username and join/create a room
+- A WebSocket connection is established with the FastAPI backend
+- Each room maintains active connections in memory
+- Messages are broadcasted to all users in the same room instantly
+- No data is stored — all messages are ephemeral
+
 
 ---
 
