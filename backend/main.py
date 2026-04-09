@@ -30,7 +30,15 @@ async def websocket_endpoint(
     room_name: str,
     username: str
 ):
+    # Security: Strip whitespace and remove dangerous characters
+    username = username.strip()
+    room_name = room_name.strip()
+
     # Security Validation: Enforce input limits
+    if len(username) == 0 or len(room_name) == 0:
+        await websocket.close(code=1008)
+        return
+
     if len(username) > 20 or len(room_name) > 20:
         await websocket.close(code=1008)
         return
@@ -102,8 +110,8 @@ async def broadcast(room_name: str, data: dict):
     for user in rooms[room_name]:
         try:
             await user["ws"].send_json(data)
-        except:
-            pass
+        except Exception:
+            pass  # Client may have disconnected; safe to ignore
 
 
 async def broadcast_users(room_name: str):
@@ -116,5 +124,5 @@ async def broadcast_users(room_name: str):
                 "type": "users",
                 "users": user_list,
             })
-        except:
-            pass
+        except Exception:
+            pass  # Client may have disconnected; safe to ignore

@@ -1,93 +1,176 @@
-# Real-Time Anonymous ChatApp 🚀
+# 💬 Real-Time Anonymous ChatApp
+
+[![GitLab CI](https://gitlab.com/praveen869-group/chatapp/badges/main/pipeline.svg)](https://gitlab.com/praveen869-group/chatapp/-/pipelines)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+A full-stack, real-time anonymous chat application built with **FastAPI** (Python) and **React** (Vite). No accounts, no database, no stored messages. Just open and chat.
+
+---
 
 ## 📸 Screenshots
 
 Login Screen
 <br>
-<img src="login.png" width="800" alt="Login" />
+<img src="login.png" width="800" alt="Username Entry Screen" />
 
 Room List Interface
 <br>
 <img src="Room.png" width="800" alt="Room List" />
 
-Main Chat Interface 
+Main Chat Interface
 <br>
-<img src="chatinterface.png" width="800" alt="Main Interface" />
- 
+<img src="chatinterface.png" width="800" alt="Chat Interface" />
+
 ---
 
 ## ✨ Features
-- **Real-Time Messaging**: Instant delivery of messages via bi-directional WebSockets.
-- **Anonymous Architecture**: No accounts, no database, no stored data.
-- **Live Room System**: Create a room, share the name, and chat with up to 50 active users per room.
-- **Modern UI**: Polished TailwindCSS design with responsive layouts and dark-mode aesthetics.
-- **Secure**: Features built-in limits against payload spamming and memory exhaustion.
 
-## 🛠️ Tech Stack
-**Frontend:**
-- React 19
-- Vite
-- TailwindCSS
-
-**Backend:**
-- Python 3
-- FastAPI
-- Uvicorn (ASGI)
-- WebSockets
+- **Real-Time Messaging** — Instant delivery via bi-directional WebSockets
+- **Anonymous Architecture** — No accounts, no database, no stored messages
+- **Multi-Room System** — Create any room; share the name to invite others
+- **Live User List** — See who is online in the sidebar (desktop)
+- **Security Limits** — Built-in protection against spam, memory exhaustion, and oversized payloads
+- **Responsive UI** — Works on mobile and desktop with a dark-mode design
+- **CI Pipeline** — Automated code quality checks on every push via GitLab CI
 
 ---
 
-## 🚀 Setting Up the Project Locally
+## 🛠️ Tech Stack
 
-Clone the repository to your local machine:
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 19, Vite, TailwindCSS |
+| Backend | Python 3, FastAPI, Uvicorn (ASGI) |
+| Real-Time | WebSockets (native browser API + FastAPI) |
+| Deployment | Vercel (frontend) + Render (backend) |
+| CI | GitLab CI (automated build & syntax checks) |
+
+---
+
+## 🚀 Deployed App
+
+| Service | URL |
+|---------|-----|
+| Frontend (Vercel) | *Your Vercel URL here* |
+| Backend (Render) | *Your Render URL here* |
+
+---
+
+## 🔒 Security Features
+
+| Protection | Details |
+|-----------|---------|
+| Username length limit | Max 20 characters (enforced on server) |
+| Room name length limit | Max 20 characters (enforced on server) |
+| Message length limit | Max 500 characters per message |
+| Max users per room | 50 users |
+| Max total rooms | 500 rooms |
+| CORS | Configured via FastAPI middleware |
+
+---
+
+## 📁 Project Structure
+
+```
+chatapp/
+├── backend/
+│   ├── main.py              # FastAPI app — WebSocket logic, room management
+│   └── requirements.txt     # Python dependencies
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx           # Root component — routing between screens
+│   │   └── components/
+│   │       ├── UsernameScreen.jsx  # Name entry screen
+│   │       ├── RoomList.jsx        # Room browser + creation
+│   │       └── ChatScreen.jsx      # Live chat UI with WebSocket
+│   ├── .env.example          # Environment variable template
+│   ├── package.json
+│   └── vite.config.js
+├── .gitlab-ci.yml            # GitLab CI pipeline
+├── .gitignore
+└── README.md
+```
+
+---
+
+## ⚙️ Local Development Setup
+
+### Prerequisites
+- Python 3.11+
+- Node.js 20+
+
+### 1. Clone the Repository
+
 ```bash
-git clone https://github.com/yourusername/chatapp.git
+git clone https://github.com/Praveen869/Realtime_chat_app.git
 cd chatapp
 ```
 
-### 1. Backend Setup
-Navigate to the backend directory and set up your virtual environment:
+### 2. Backend Setup
 
 ```bash
 cd backend
 python -m venv venv
 
-# On Windows:
+# Windows:
 venv\Scripts\activate
 
-# On Mac/Linux:
+# Mac/Linux:
 source venv/bin/activate
-```
 
-Install the required Python dependencies:
-```bash
 pip install -r requirements.txt
-```
-
-Start the FastAPI server:
-```bash
 uvicorn main:app --reload
 ```
-The backend API will run on `http://localhost:8000`
 
-### 2. Frontend Setup
-Open a new terminal window and navigate to the frontend directory:
+Backend runs at: `http://localhost:8000`
+
+Test it: Open `http://localhost:8000/` — should return `{"message": "Server is working!"}`
+
+### 3. Frontend Setup
+
+Open a **new terminal window**:
 
 ```bash
 cd frontend
 npm install
-```
-
-Start the frontend development server:
-```bash
 npm run dev
 ```
-The React frontend will be accessible at `http://localhost:5173`
+
+Frontend runs at: `http://localhost:5173`
+
+### 4. Environment Variables (Optional for Local)
+
+Copy the example file:
+```bash
+cp frontend/.env.example frontend/.env
+```
+
+For local development, the defaults already point to `localhost:8000` so no changes are needed.
+
+For production, set these in your Vercel dashboard:
+```
+VITE_API_BASE_URL=https://your-render-url.onrender.com
+VITE_WS_BASE_URL=wss://your-render-url.onrender.com
+```
 
 ---
 
-## 🔒 Environment Configuration 
-For production deployment, you can customize the connection URLs by modifying the frontend code or injecting environment variables (e.g., `VITE_API_BASE_URL` and `VITE_WS_BASE_URL`).
+## 🔄 GitLab CI Pipeline
+
+Every push to the `main` branch triggers an automated pipeline with 2 jobs:
+
+```
+Stage 1: check
+  └── backend  → pip install + python syntax check on main.py
+
+Stage 2: build
+  └── frontend → npm ci + npm run build (full Vite production build)
+```
+
+View pipelines at: [GitLab → Build → Pipelines](https://gitlab.com/praveen869-group/chatapp/-/pipelines)
+
+---
 
 ## 📜 License
-This project is open-source and available under the MIT License.
+
+This project is open-source under the [MIT License](LICENSE).
