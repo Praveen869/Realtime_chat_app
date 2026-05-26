@@ -4,8 +4,22 @@ function ChatScreen({ username, room, onLeaveRoom }) {
     const [messages, setMessages] = useState([])
     const [input, setInput] = useState("")
     const [onlineUsers, setOnlineUsers] = useState([])
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false)
     const ws = useRef(null)
     const messagesEndRef = useRef(null)
+
+    const POPULAR_EMOJIS = [
+        // Smilies & Emotions
+        "😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "😊", "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰", "😘", "😗", "😙", "😚", 
+        "😋", "😛", "😝", "😜", "🤪", "🤨", "🧐", "🤓", "😎", "🥸", "🤩", "🥳", "😏", "😒", "😞", "😔", "😟", "😕", "🙁", "☹️", 
+        "😣", "😖", "😫", "😩", "🥺", "😢", "😭", "😤", "😠", "😡", "🤬", "🤯", "😳", "🥵", "🥶", "😱", "😨", "😰", "😥", "😓",
+        // Hand gestures
+        "👍", "👎", "👊", "✊", "🤛", "🤜", "🤞", "✌️", "🤟", "🤘", "👌", "🤌", "🤏", "👈", "👉", "👆", "👇", "☝️", "✋", "🤚", 
+        "🖐️", "🖖", "👋", "🤙", "💪", "🦾", "🖕", "✍️", "🙏", "🤝",
+        // Hearts, Stars & Celebrations
+        "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❤️‍🔥", "❤️‍🩹", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝",
+        "🔥", "✨", "⚡", "💥", "⭐", "🌟", "🎉", "🎊", "🎈", "🎁"
+    ]
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -35,6 +49,11 @@ function ChatScreen({ username, room, onLeaveRoom }) {
         // Send UTC ISO timestamp — each user's browser converts to THEIR local time
         ws.current.send(JSON.stringify({ text: input, time: new Date().toISOString() }))
         setInput("")
+    }
+
+    function handleAddEmoji(emoji) {
+        setInput((prev) => prev + emoji)
+        setShowEmojiPicker(false)
     }
 
     return (
@@ -131,8 +150,39 @@ function ChatScreen({ username, room, onLeaveRoom }) {
                     </div>
 
                     {/* Input Area (Sticky Bottom) */}
-                    <div className="p-3 bg-gray-800 border-t border-gray-700 shrink-0">
-                        <div className="flex gap-2 max-w-5xl mx-auto items-center">
+                    <div className="p-3 bg-gray-800 border-t border-gray-700 shrink-0 relative">
+                        {showEmojiPicker && (
+                            <div className="absolute bottom-20 left-4 z-50 bg-gray-900 border border-gray-700 p-3 rounded-2xl shadow-2xl w-64 backdrop-blur-md bg-opacity-95">
+                                <div 
+                                    className="grid grid-cols-6 gap-2 max-h-48 overflow-y-auto pr-1"
+                                    style={{
+                                        scrollbarWidth: "thin",
+                                        scrollbarColor: "#374151 transparent"
+                                    }}
+                                >
+                                    {POPULAR_EMOJIS.map((emoji) => (
+                                        <button
+                                            key={emoji}
+                                            type="button"
+                                            onClick={() => handleAddEmoji(emoji)}
+                                            className="text-2xl hover:scale-125 transition-transform p-1.5 focus:outline-none active:scale-90"
+                                        >
+                                            {emoji}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        <div className="flex gap-2 max-w-5xl mx-auto items-center relative">
+                            <button
+                                type="button"
+                                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                                className="h-12 w-12 shrink-0 bg-gray-700 hover:bg-gray-650 text-gray-300 hover:text-white rounded-full flex items-center justify-center text-xl transition-all active:scale-95"
+                                title="Add Emoji"
+                            >
+                                😊
+                            </button>
+                            
                             <input
                                 type="text"
                                 value={input}
