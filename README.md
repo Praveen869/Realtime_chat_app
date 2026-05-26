@@ -20,6 +20,10 @@ A full-stack, real-time anonymous chat application and interactive AI playground
 <br>
 <img src="chatinterface.png" width="800" alt="Chat Interface" />
 
+### AI Chat Interface
+<br>
+<img src="Aichat.png" width="800" alt="AI Chat Interface" />
+
 ---
 
 ## ✨ Features
