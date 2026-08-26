@@ -5,7 +5,9 @@ import httpx
 import asyncio
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables explicitly from backend/.env file
+env_path = os.path.join(os.path.dirname(__file__), ".env")
+load_dotenv(dotenv_path=env_path)
 load_dotenv()
 
 app = FastAPI()
@@ -43,19 +45,36 @@ PERSONAS = {
     }
 }
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
-OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openai/gpt-oss-120b:free")
+def reload_env():
+    env_path = os.path.join(os.path.dirname(__file__), ".env")
+    load_dotenv(dotenv_path=env_path, override=True)
+
+def get_openrouter_key():
+    reload_env()
+    return os.environ.get("OPENROUTER_API_KEY", "").strip()
+
+def get_gemini_key():
+    reload_env()
+    return os.environ.get("GEMINI_API_KEY", "").strip()
+
+def get_openrouter_model():
+    reload_env()
+    return os.environ.get("OPENROUTER_MODEL", "stealth/ox-alpha").strip()
+
 DEFAULT_BOT_ROLE = os.environ.get("DEFAULT_BOT_ROLE", "You are a helpful and concise assistant.")
 
+print(f"🔑 [AI Config] OpenRouter Key Loaded: {'YES (***' + get_openrouter_key()[-4:] + ')' if get_openrouter_key() else 'NO'}")
+print(f"🔑 [AI Config] Gemini Key Loaded: {'YES (***' + get_gemini_key()[-4:] + ')' if get_gemini_key() else 'NO'}")
+
 async def call_openrouter_api(system_prompt: str, user_text: str, chat_history: list) -> str:
-    if not OPENROUTER_API_KEY:
+    openrouter_key = get_openrouter_key()
+    if not openrouter_key:
         return ""
     
     url = "https://openrouter.ai/api/v1/chat/completions"
     
     headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Authorization": f"Bearer {openrouter_key}",
         "Content-Type": "application/json",
         "HTTP-Referer": "http://localhost:5173",
         "X-Title": "Realtime ChatApp AI Studio"
@@ -72,29 +91,33 @@ async def call_openrouter_api(system_prompt: str, user_text: str, chat_history: 
     messages.append({"role": "user", "content": user_text})
     
     payload = {
-        "model": OPENROUTER_MODEL,
+        "model": get_openrouter_model(),
         "messages": messages
     }
     
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, headers=headers, timeout=25.0)
+            response = await client.post(url, json=payload, headers=headers, timeout=10.0)
             if response.status_code == 200:
                 resp_data = response.json()
                 choices = resp_data.get("choices", [])
                 if choices:
                     content = choices[0].get("message", {}).get("content", "")
-                    return content
-            print(f"OpenRouter API returned status {response.status_code}: {response.text}")
+                    if content:
+                        print("🤖 [AI Success] Response generated via OpenRouter API!")
+                        return content
+            print(f"⚠️ OpenRouter API status {response.status_code}: {response.text}")
     except Exception as e:
-        print(f"Error calling OpenRouter API: {e}")
+        print(f"⚠️ OpenRouter API timeout/error: {e}")
     return ""
 
 async def call_gemini_api(system_prompt: str, user_text: str, chat_history: list) -> str:
-    if not GEMINI_API_KEY:
+    gemini_key = get_gemini_key()
+    if not gemini_key:
         return ""
     
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+    gemini_model = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash").strip()
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent?key={gemini_key}"
     
     contents = []
     # Chat history is passed as a list of {"role": "user"|"model", "text": "..."}
@@ -118,17 +141,20 @@ async def call_gemini_api(system_prompt: str, user_text: str, chat_history: list
     
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, timeout=20.0)
+            response = await client.post(url, json=payload, timeout=10.0)
             if response.status_code == 200:
                 resp_data = response.json()
                 candidates = resp_data.get("candidates", [])
                 if candidates:
                     parts = candidates[0].get("content", {}).get("parts", [])
                     if parts:
-                        return parts[0].get("text", "")
-            print(f"Gemini API returned status {response.status_code}: {response.text}")
+                        content = parts[0].get("text", "")
+                        if content:
+                            print("🤖 [AI Success] Response generated via Gemini API!")
+                            return content
+            print(f"⚠️ Gemini API returned status {response.status_code}: {response.text}")
     except Exception as e:
-        print(f"Error calling Gemini API: {e}")
+        print(f"⚠️ Error calling Gemini API: {e}")
     return ""
 
 def generate_mock_ai_response(persona_id: str, custom_instruction: str, user_text: str) -> str:
@@ -160,15 +186,39 @@ def generate_mock_ai_response(persona_id: str, custom_instruction: str, user_tex
 
     elif persona_id == "tech_architect":
         if "hello" in text_lower or "hi" in text_lower:
-            return "```json\n{\n  \"status\": \"online\",\n  \"agent\": \"Ada\",\n  \"role\": \"Principal Tech Architect\"\n}\n```\n\nConnection established. Ready to design, optimize, or debug. State your technical requirements, architectural constraints, or language preference. Let's build something highly scalable."
+            return "⚡ **Ada (Principal Tech Architect)** is online.\n\nConnection established. Ready to design high-performance architecture, review code, or solve scaling bottlenecks. What technical challenge are we tackling today?"
         elif "code" in text_lower or "javascript" in text_lower or "react" in text_lower or "python" in text_lower:
-            return "### Optimized Component Design\n\nFor high-performance rendering and state isolation in a real-time context, here is an optimized boilerplate:\n\n```javascript\n// High-performance React state controller\nimport { useState, useCallback } from 'react';\n\nexport const useSocketStream = (endpoint) => {\n  const [data, setData] = useState([]);\n  \n  const handleIncomingStream = useCallback((event) => {\n    const payload = JSON.parse(event.data);\n    setData((prev) => [...prev, payload]);\n  }, []);\n\n  return {\n    data,\n    handleIncomingStream\n  };\n};\n```\n\n**Architectural Notes:**\n*   **Memory Footprint**: State updates use memoized callbacks to prevent unnecessary re-renders.\n*   **Scaling**: WebSocket connection should be wrapped in an exponential backoff retry loop."
+            return "### 💻 Optimized Component Design\n\nFor high-performance rendering and state isolation in a real-time context, here is an optimized pattern:\n\n```javascript\n// High-performance React state controller\nimport { useState, useCallback } from 'react';\n\nexport const useSocketStream = (endpoint) => {\n  const [data, setData] = useState([]);\n  \n  const handleIncomingStream = useCallback((event) => {\n    const payload = JSON.parse(event.data);\n    setData((prev) => [...prev, payload]);\n  }, []);\n\n  return {\n    data,\n    handleIncomingStream\n  };\n};\n```\n\n**Architectural Highlights:**\n* **Memory Footprint**: Uses memoized callbacks to prevent superfluous re-renders.\n* **Fault Tolerance**: Wrap socket reconnects in an exponential backoff loop."
         else:
-            return f"### Technical Assessment: *{user_text}*\n\nAddressing your query regarding technical implementation:\n\n1. **Bottleneck Analysis**: Avoid global locks; ensure asynchronous event IO handles message queuing.\n2. **Design Pattern**: Implement a standard *Observer* or *Publish-Subscribe* mechanism to decouple data ingestion from UI rendering.\n3. **Security**: Validate all inputs at the API gateway layer.\n\nProvide the specific technology stack or database constraint if you require a detailed schema design."
+            return f"### 🛠️ Technical Assessment: *{user_text}*\n\nAnalyzing implementation strategy:\n\n1. **Architecture & State**: Use decoupled pub/sub streams to separate data ingestion from UI rendering.\n2. **Security**: Enforce strict server-side validation and schema checks on every payload.\n3. **Performance**: Offload heavy computation to background workers.\n\nLet me know your specific tech stack or constraints to generate complete code schemas!"
 
     else:
-        persona_display = custom_instruction if persona_id == "custom" else persona_id.capitalize()
-        return f"✨ **[AI Persona: {persona_display}]**\n\nReceived instruction. Processing query: *\"{user_text}\"*\n\nBased on my system prompt to act as **\"{persona_display}\"**, here is my tailored guidance:\n\n*   I will adhere strictly to your instructions.\n*   We will ensure the conversation remains highly aligned to this persona.\n\nLet me know what specific details you would like to explore under these guidelines!"
+        role_label = (custom_instruction or persona_id).strip()
+        role_lower = role_label.lower()
+        
+        if "teacher" in role_lower or "tutor" in role_lower or "explain" in role_lower:
+            if "hello" in text_lower or "hi" in text_lower:
+                return f"🎓 **Welcome to class!** (Persona: *{role_label}*)\n\nHello! I am ready to guide you today. What topic or concept would you like us to learn step-by-step?"
+            else:
+                return f"📚 **Teacher's Explanation** (Persona: *{role_label}*)\n\nGreat question regarding *\"{user_text}\"*! Let's break this down clearly:\n\n1. **Core Principle**: Understanding the fundamental idea behind this topic.\n2. **Practical Example**: How it applies in real-world scenarios.\n3. **Summary**: The key lesson to take away.\n\nWould you like me to clarify any part or move to the next topic?"
+
+        elif "hacker" in role_lower or "cyber" in role_lower or "terminal" in role_lower:
+            if "hello" in text_lower or "hi" in text_lower:
+                return f"⚡ **[TERMINAL CONNECTED]** (Persona: *{role_label}*)\n\nSystem access granted. Mainframe stream initialized. State your objective."
+            else:
+                return f"💻 **[EXECUTING PAYLOAD]**\n\nProcessing query: *\"{user_text}\"*\n```bash\n# Running diagnostic scan...\nStatus: 200 OK\nPayload delivered successfully.\n```\nReady for next command."
+
+        elif "doctor" in role_lower or "medical" in role_lower or "health" in role_lower:
+            if "hello" in text_lower or "hi" in text_lower:
+                return f"🩺 **Medical Consultant Online** (Persona: *{role_label}*)\n\nHello. I am here to assist with health & medical insights. How can I assist you today?"
+            else:
+                return f"📋 **Clinical Assessment** (Persona: *{role_label}*)\n\nRegarding your inquiry *\"{user_text}\"*, it is important to observe standard health guidelines, clinical evidence, and consult a certified specialist for personal diagnoses."
+
+        else:
+            if "hello" in text_lower or "hi" in text_lower:
+                return f"✨ **Greetings!** (Persona: *{role_label}*)\n\nI am active and roleplaying as **\"{role_label}\"**. What would you like to discuss today?"
+            else:
+                return f"✨ **[Role: {role_label}]**\n\nRegarding *\"{user_text}\"*\n\nAdhering strictly to my custom instructions (*\"{role_label}\"*), here is my response:\n\nI am fully aligned with your instructions! Let me know what specific details you want to explore next."
 
 @app.websocket("/ws/ai/{persona_id}/{username}")
 async def ai_websocket_endpoint(
@@ -219,10 +269,10 @@ async def ai_websocket_endpoint(
     )
     
     welcome_text = ""
-    if OPENROUTER_API_KEY:
+    if get_openrouter_key():
         welcome_text = await call_openrouter_api(system_prompt, intro_prompt, [])
     
-    if not welcome_text and GEMINI_API_KEY:
+    if not welcome_text and get_gemini_key():
         welcome_text = await call_gemini_api(system_prompt, intro_prompt, [])
         
     if not welcome_text:
@@ -281,11 +331,11 @@ async def ai_websocket_endpoint(
 
             # Call AI
             response_text = ""
-            if OPENROUTER_API_KEY:
+            if get_openrouter_key():
                 # OpenRouter API call
                 response_text = await call_openrouter_api(system_prompt, text_payload, chat_history)
             
-            if not response_text and GEMINI_API_KEY:
+            if not response_text and get_gemini_key():
                 # Direct Gemini API call fallback
                 response_text = await call_gemini_api(system_prompt, text_payload, chat_history)
 

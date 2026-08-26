@@ -166,7 +166,7 @@ cd chatapp
    pip install -r requirements.txt
 
    # Start the FastAPI Server
-   uvicorn main:app --reload
+   uvicorn backend.main:app --reload
    ```
 
 Backend will run at: `http://localhost:8000`
