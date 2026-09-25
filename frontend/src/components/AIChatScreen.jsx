@@ -162,6 +162,27 @@ function AIChatScreen({ username, onLeave }) {
             const data = JSON.parse(event.data)
             if (data.type === "typing") {
                 setIsTyping(data.status)
+            } else if (data.type === "stream_start") {
+                setIsTyping(false)
+                setMessages((prev) => [
+                    ...prev,
+                    {
+                        id: data.id,
+                        username: data.username,
+                        text: "",
+                        time: data.time
+                    }
+                ])
+            } else if (data.type === "stream_chunk") {
+                setMessages((prev) =>
+                    prev.map((msg) =>
+                        msg.id === data.id
+                            ? { ...msg, text: msg.text + data.chunk }
+                            : msg
+                    )
+                )
+            } else if (data.type === "stream_end") {
+                setIsTyping(false)
             } else {
                 setMessages((prev) => [...prev, data])
             }
@@ -500,7 +521,7 @@ function AIChatScreen({ username, onLeave }) {
                                 const isAI = !isMe && msg.username !== "System"
 
                                 return (
-                                    <div key={index} className={`flex gap-3 max-w-4xl ${isMe ? "ml-auto flex-row-reverse" : "mr-auto flex-row"}`}>
+                                    <div key={msg.id || index} className={`flex gap-3 max-w-4xl ${isMe ? "ml-auto flex-row-reverse" : "mr-auto flex-row"}`}>
                                         
                                         {/* Avatar Icon */}
                                         <div className={`w-9 h-9 rounded-xl shrink-0 flex items-center justify-center text-base shadow-md font-bold ${

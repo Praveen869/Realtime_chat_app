@@ -1,3 +1,5 @@
+import json
+import uuid
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
 import os
@@ -59,7 +61,7 @@ def get_gemini_key():
 
 def get_openrouter_model():
     reload_env()
-    return os.environ.get("OPENROUTER_MODEL", "stealth/ox-alpha").strip()
+    return os.environ.get("OPENROUTER_MODEL", "nvidia/nemotron-3-ultra-550b-a55b:free").strip()
 
 DEFAULT_BOT_ROLE = os.environ.get("DEFAULT_BOT_ROLE", "You are a helpful and concise assistant.")
 
@@ -116,7 +118,7 @@ async def call_gemini_api(system_prompt: str, user_text: str, chat_history: list
     if not gemini_key:
         return ""
     
-    gemini_model = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash").strip()
+    gemini_model = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash").strip()
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent?key={gemini_key}"
     
     contents = []
@@ -156,6 +158,177 @@ async def call_gemini_api(system_prompt: str, user_text: str, chat_history: list
     except Exception as e:
         print(f"⚠️ Error calling Gemini API: {e}")
     return ""
+
+async def stream_openrouter_api(system_prompt: str, user_text: str, chat_history: list):
+    openrouter_key = get_openrouter_key()
+    if not openrouter_key:
+        return
+
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {openrouter_key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "http://localhost:5173",
+        "X-Title": "Realtime ChatApp AI Studio"
+    }
+
+    messages = [{"role": "system", "content": system_prompt}]
+    for msg in chat_history[-6:]:
+        messages.append({
+            "role": "user" if msg["role"] == "user" else "assistant",
+            "content": msg["text"]
+        })
+    messages.append({"role": "user", "content": user_text})
+
+    payload = {
+        "model": get_openrouter_model(),
+        "messages": messages,
+        "stream": True
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            async with client.stream("POST", url, json=payload, headers=headers, timeout=30.0) as response:
+                if response.status_code == 200:
+                    async for line in response.aiter_lines():
+                        if line.startswith("data: "):
+                            data_str = line[6:].strip()
+                            if data_str == "[DONE]":
+                                break
+                            try:
+                                json_obj = json.loads(data_str)
+                                choices = json_obj.get("choices", [])
+                                if choices:
+                                    delta = choices[0].get("delta", {})
+                                    chunk = delta.get("content", "")
+                                    if chunk:
+                                        yield chunk
+                            except Exception:
+                                continue
+                else:
+                    print(f"⚠️ OpenRouter Streaming status {response.status_code}")
+    except Exception as e:
+        print(f"⚠️ OpenRouter Streaming error: {e}")
+
+async def stream_gemini_api(system_prompt: str, user_text: str, chat_history: list):
+    gemini_key = get_gemini_key()
+    if not gemini_key:
+        return
+
+    gemini_model = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash").strip()
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:streamGenerateContent?key={gemini_key}&alt=sse"
+
+    contents = []
+    for msg in chat_history[-6:]:
+        contents.append({
+            "role": "user" if msg["role"] == "user" else "model",
+            "parts": [{"text": msg["text"]}]
+        })
+    contents.append({
+        "role": "user",
+        "parts": [{"text": user_text}]
+    })
+
+    payload = {
+        "systemInstruction": {
+            "parts": [{"text": system_prompt}]
+        },
+        "contents": contents
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            async with client.stream("POST", url, json=payload, timeout=30.0) as response:
+                if response.status_code == 200:
+                    async for line in response.aiter_lines():
+                        if line.startswith("data: "):
+                            data_str = line[6:].strip()
+                            try:
+                                json_obj = json.loads(data_str)
+                                candidates = json_obj.get("candidates", [])
+                                if candidates:
+                                    parts = candidates[0].get("content", {}).get("parts", [])
+                                    if parts:
+                                        text = parts[0].get("text", "")
+                                        if text:
+                                            yield text
+                            except Exception:
+                                continue
+                else:
+                    print(f"⚠️ Gemini Streaming status {response.status_code}")
+    except Exception as e:
+        print(f"⚠️ Error calling Gemini Streaming API: {e}")
+
+async def stream_mock_response(full_text: str):
+    words = full_text.split(" ")
+    for i, word in enumerate(words):
+        chunk = word + (" " if i < len(words) - 1 else "")
+        yield chunk
+        await asyncio.sleep(0.02)
+
+async def stream_ai_response(
+    websocket: WebSocket,
+    system_prompt: str,
+    text_payload: str,
+    chat_history: list,
+    persona_id: str,
+    custom_instruction: str,
+    time_payload: str
+) -> str:
+    message_id = str(uuid.uuid4())
+
+    await websocket.send_json({
+        "type": "stream_start",
+        "id": message_id,
+        "username": "AI Chatbot",
+        "time": time_payload
+    })
+
+    await websocket.send_json({
+        "type": "typing",
+        "username": "AI Chatbot",
+        "status": False
+    })
+
+    full_response = ""
+    stream_started = False
+
+    if get_openrouter_key():
+        async for chunk in stream_openrouter_api(system_prompt, text_payload, chat_history):
+            stream_started = True
+            full_response += chunk
+            await websocket.send_json({
+                "type": "stream_chunk",
+                "id": message_id,
+                "chunk": chunk
+            })
+
+    if not stream_started and get_gemini_key():
+        async for chunk in stream_gemini_api(system_prompt, text_payload, chat_history):
+            stream_started = True
+            full_response += chunk
+            await websocket.send_json({
+                "type": "stream_chunk",
+                "id": message_id,
+                "chunk": chunk
+            })
+
+    if not stream_started:
+        mock_text = generate_mock_ai_response(persona_id, custom_instruction or "", text_payload)
+        async for chunk in stream_mock_response(mock_text):
+            full_response += chunk
+            await websocket.send_json({
+                "type": "stream_chunk",
+                "id": message_id,
+                "chunk": chunk
+            })
+
+    await websocket.send_json({
+        "type": "stream_end",
+        "id": message_id
+    })
+
+    return full_response
 
 def generate_mock_ai_response(persona_id: str, custom_instruction: str, user_text: str) -> str:
     text_lower = user_text.lower()
@@ -261,38 +434,22 @@ async def ai_websocket_endpoint(
         "status": True
     })
 
-    # Call AI to generate a dynamic, persona-specific welcome message!
+    # Stream dynamic, persona-specific welcome message
     intro_prompt = (
         f"Start a natural conversation. Greet the user '{username}' with a highly realistic, warm, and brief in-character opening line. "
         "Do NOT sound like an AI. Do NOT mention that this is a chat session, chat room, internet space, or 'corner'. "
         "Speak exactly like a real person starting a normal text conversation."
     )
     
-    welcome_text = ""
-    if get_openrouter_key():
-        welcome_text = await call_openrouter_api(system_prompt, intro_prompt, [])
-    
-    if not welcome_text and get_gemini_key():
-        welcome_text = await call_gemini_api(system_prompt, intro_prompt, [])
-        
-    if not welcome_text:
-        # Fallback to simulated response if APIs are unavailable
-        welcome_text = generate_mock_ai_response(persona_id, custom_instruction or "", "Hello")
-
-    # Send actual dynamic welcome message
-    await websocket.send_json({
-        "type": "message",
-        "username": "AI Chatbot",
-        "text": welcome_text,
-        "time": asyncio.get_event_loop().time()
-    })
-
-    # Clear typing state
-    await websocket.send_json({
-        "type": "typing",
-        "username": "AI Chatbot",
-        "status": False
-    })
+    welcome_text = await stream_ai_response(
+        websocket=websocket,
+        system_prompt=system_prompt,
+        text_payload=intro_prompt,
+        chat_history=[],
+        persona_id=persona_id,
+        custom_instruction=custom_instruction,
+        time_payload=str(asyncio.get_event_loop().time())
+    )
 
     chat_history = []
 
@@ -329,40 +486,20 @@ async def ai_websocket_endpoint(
                 "status": True
             })
 
-            # Call AI
-            response_text = ""
-            if get_openrouter_key():
-                # OpenRouter API call
-                response_text = await call_openrouter_api(system_prompt, text_payload, chat_history)
-            
-            if not response_text and get_gemini_key():
-                # Direct Gemini API call fallback
-                response_text = await call_gemini_api(system_prompt, text_payload, chat_history)
-
-            if not response_text:
-                # Fallback to simulated response
-                # Simulate thinking delay of 1.5 seconds for realism
-                await asyncio.sleep(1.5)
-                response_text = generate_mock_ai_response(persona_id, custom_instruction or "", text_payload)
+            # Stream AI response
+            response_text = await stream_ai_response(
+                websocket=websocket,
+                system_prompt=system_prompt,
+                text_payload=text_payload,
+                chat_history=chat_history,
+                persona_id=persona_id,
+                custom_instruction=custom_instruction,
+                time_payload=time_payload
+            )
 
             # Record turn in chat history
             chat_history.append({"role": "user", "text": text_payload})
             chat_history.append({"role": "model", "text": response_text})
-
-            # Send actual response
-            await websocket.send_json({
-                "type": "message",
-                "username": "AI Chatbot",
-                "text": response_text,
-                "time": time_payload
-            })
-
-            # Clear typing state
-            await websocket.send_json({
-                "type": "typing",
-                "username": "AI Chatbot",
-                "status": False
-            })
 
     except WebSocketDisconnect:
         pass
